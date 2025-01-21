@@ -69,9 +69,63 @@ Write-Host "Deployment type details with extracted locations have been exported 
 #######
 Delete content from Distribution Points and Distribution Point Groups manually via list, just copy/paste and list whatever you like:
 #######
+
+
 $applist = get-content C:\whatever\input\retired.txt
 ForEach ($app in $applist) {
 Remove-CMContentDistribution -ApplicationName $app -DistributionPointName "yourdpname.yourdomain.com" -force;
 Remove-CMContentDistribution -ApplicationName $app -DistributionPointGroupName "Your Distribution Point" -force;
 
 
+#######
+CAUTION: Force remove application list from ALL DP and ALL DPG. This script will import a list of applications, then force remove it after enumerating all of your DPs and all of your DPGS. If it's only deployed to a group, it will say 'Failed to Remove' for all individual DP's, but then will remove the content when it processes the group assignment.
+#######
+
+# Define the input file containing application names
+$InputFile = "C:\whatever\content_cleanup\applications.txt"
+
+# Check if the input file exists
+if (-Not (Test-Path $InputFile)) {
+    Write-Host "Input file not found: $InputFile" -ForegroundColor Red
+    exit
+}
+
+# Get the list of application names from the input file
+$AppList = Get-Content -Path $InputFile
+
+# Get all distribution points in the environment
+$DistributionPoints = Get-CMDistributionPoint | Select-Object -ExpandProperty NetworkOSPath
+
+# Get all distribution point groups in the environment
+$DistributionPointGroups = Get-CMDistributionPointGroup | Select-Object -ExpandProperty Name
+
+# Check if any distribution points or groups were found
+if (-Not $DistributionPoints -and -Not $DistributionPointGroups) {
+    Write-Host "No distribution points or distribution point groups found in the environment." -ForegroundColor Red
+    exit
+}
+
+# Process each application
+foreach ($App in $AppList) {
+    # Process individual distribution points
+    foreach ($DP in $DistributionPoints) {
+        try {
+            # Remove the content from the current distribution point
+            Remove-CMContentDistribution -ApplicationName $App -DistributionPointName $DP -Force -ErrorAction Stop
+            Write-Host "Removed content for application '$App' from distribution point '$DP'."
+        } catch {
+            Write-Host "Failed to remove content for application '$App' from distribution point '$DP': $_" -ForegroundColor Yellow
+        }
+    }
+
+    # Process distribution point groups
+    foreach ($DPG in $DistributionPointGroups) {
+        try {
+            # Remove the content from the current distribution point group
+            Remove-CMContentDistribution -ApplicationName $App -DistributionPointGroupName $DPG -Force -ErrorAction Stop
+            Write-Host "Removed content for application '$App' from distribution point group '$DPG'."
+        } catch {
+            Write-Host "Failed to remove content for application '$App' from distribution point group '$DPG': $_" -ForegroundColor Yellow
+        }
+    }
+}
