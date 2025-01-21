@@ -1,0 +1,89 @@
+
+<#
+This is a collection of scripts to aid with collection administration and efficiency
+All snippets here assume that you are already connected to your SCCM Server with requisite modules installed locally.
+#>
+
+
+###############
+Find incremental collections. I suggest you review this list, as certainly some collections MUST stay incremental.
+###############
+
+
+#Refresh type 4 is JUST incremental, refresh type 6 is incremental AND scheduled.
+
+Get-CMDeviceCollection |
+Select-Object -Property Name, CollectionID, RefreshType |
+Where-Object { $_.Refreshtype -eq 6 } |
+Sort-Object Name |
+Export-Csv -Path C:\wherever\you\like\output\IncrementalAndScheduledCollections.csv -NoTypeInformation -Encoding UTF8
+
+
+
+
+###############
+Convert Incremental to Periodic. Pick the apps you want to convert from above and save to text. Leaves your full checkin wherever it was set on collection creation.
+###############
+
+<# 
+ONLY FOR COLLECTIONS DOING BOTH PERIODIC AND INCREMENTAL EVALUATIONS.
+DO NOT USE ON COLLECTIONS DOING INCREMENTAL ONLY
+#>
+
+# Path to the text file containing the collection names
+$CollectionFilePath = "C:\wherever\you\like\input\IncrementalCollections.txt"
+
+# Read the collection names from the file
+if (Test-Path $CollectionFilePath) {
+    $CollectionsToUpdate = Get-Content -Path $CollectionFilePath
+} else {
+    Write-Host "The specified file does not exist: $CollectionFilePath" -ForegroundColor Red
+    exit
+}
+
+# Process each collection name
+foreach ($CollectionName in $CollectionsToUpdate) {
+    # Get the collection object matching the name
+    $Collection = Get-CMDeviceCollection | Where-Object {
+        $_.Name -eq $CollectionName
+    }
+
+    if ($Collection) {
+        # Update the refresh type to Periodic
+        $Collection | Set-CMCollection -RefreshType Periodic
+        Write-Host "Updated refresh type to 'Periodic' for collection: $CollectionName"
+    } else {
+        Write-Host "Collection not found or already set to 'Periodic': $CollectionName" -ForegroundColor Yellow
+    }
+}
+
+###############
+Convert incremental to periodic and set schedule to 2 days. Set it to whatever and have fun. You can change days to minutes, hours, weeks, whatever.
+###############
+# Path to the text file containing the collection names
+$CollectionFilePath = "C:\Path\To\CollectionNames.txt"
+
+# Create a new schedule object for a 2-day interval
+$NewSchedule = New-CMSchedule -Start (Get-Date) -RecurInterval Days -RecurCount 2
+
+# Read the collection names from the file
+if (Test-Path $CollectionFilePath) {
+    $CollectionsToUpdate = Get-Content -Path $CollectionFilePath
+} else {
+    Write-Host "The specified file does not exist: $CollectionFilePath" -ForegroundColor Red
+    exit
+}
+
+# Process each collection name
+foreach ($CollectionName in $CollectionsToUpdate) {
+    # Retrieve the collection by name
+    $Collection = Get-CMDeviceCollection | Where-Object { $_.Name -eq $CollectionName }
+
+    if ($Collection) {
+        # Update the collection's refresh type to "scheduled" with the new schedule
+        Set-CMCollection -InputObject $Collection -RefreshType Periodic -Schedule $NewSchedule
+        Write-Host "Updated schedule for collection: $CollectionName" -ForegroundColor Green
+    } else {
+        Write-Host "Collection not found: $CollectionName" -ForegroundColor Yellow
+    }
+}
