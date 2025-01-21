@@ -1,0 +1,77 @@
+<#
+This is a collection of scripts and snippets to help with content management and administration
+#>
+
+#########
+Find and list all retired applications
+#########
+
+# Query for all expired applications
+$ExpiredApps = Get-CMApplication | Where-Object { $_.IsExpired -eq $true }
+
+# Extract application names
+$AppNames = $ExpiredApps | Select-Object -ExpandProperty LocalizedDisplayName
+
+# Export the names to a text file
+$OutputFile = "C:\wherever\you\like\content_cleanup\output\RetiredApps.txt"
+$AppNames | Out-File -FilePath $OutputFile -Encoding UTF8
+
+Write-Output "Expired application names have been exported to $OutputFile"
+
+
+
+########
+Return master source folder location from list of retired applications. Munge above list and process to return name and path.
+This file returns all the deployment types for every application, then uses regex to scrub the SDMPackageXML field of the deployment type for the location path. If you're bored, pull that SDMPackageXML parameter manually and see how ridiculous it is.
+########
+
+# Define the input file path containing application names (one per line)
+$InputFile = "C:\whatever\content_cleanup\output\RetiredApps.txt"
+
+# Define the output CSV file path
+$OutputFile = "C:\whatever\content_cleanup\output\DeploymentTypeDetailsJustLocation.csv"
+
+# Initialize an array to store the results
+$Results = @()
+
+# Import application names from the input file
+$ApplicationNames = Get-Content -Path $InputFile
+
+# Loop through each application name
+foreach ($ApplicationName in $ApplicationNames) {
+    # Query deployment types for the current application
+    $DeploymentTypes = Get-CMDeploymentType -ApplicationName $ApplicationName
+
+    # Process each deployment type
+    foreach ($DeploymentType in $DeploymentTypes) {
+        # Extract the content between <Location> and </Location>
+        $SDMPackageXML = $DeploymentType.SDMPackageXML
+        $Location = if ($SDMPackageXML -match "<Location>(.*?)</Location>") {
+            $matches[1]
+        } else {
+            "No location found"
+        }
+
+        # Add the result to the results array
+        $Results += [PSCustomObject]@{
+            ApplicationName      = $ApplicationName
+            Location             = $Location
+        }
+    }
+}
+
+# Export the results to a CSV file
+$Results | Export-Csv -Path $OutputFile -NoTypeInformation -Encoding UTF8
+
+Write-Host "Deployment type details with extracted locations have been exported to $OutputFile"
+
+
+#######
+Delete content from Distribution Points and Distribution Point Groups manually via list, just copy/paste and list whatever you like:
+#######
+$applist = get-content C:\whatever\input\retired.txt
+ForEach ($app in $applist) {
+Remove-CMContentDistribution -ApplicationName $app -DistributionPointName "yourdpname.yourdomain.com" -force;
+Remove-CMContentDistribution -ApplicationName $app -DistributionPointGroupName "Your Distribution Point" -force;
+
+
