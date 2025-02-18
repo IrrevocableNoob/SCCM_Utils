@@ -21,8 +21,8 @@ Write-Output "Expired application names have been exported to $OutputFile"
 
 
 ########
-Return master source folder location from list of retired applications. Munge above list and process to return name and path.
-This file returns all the deployment types for every application, then uses regex to scrub the SDMPackageXML field of the deployment type for the location path. If you're bored, pull that SDMPackageXML parameter manually and see how ridiculous it is.
+#Return master source folder location from list of retired applications. Munge above list and process to return name and path.
+#This file returns all the deployment types for every application, then uses regex to scrub the SDMPackageXML field of the deployment type for the location path. If you're bored, pull that SDMPackageXML parameter manually and see how ridiculous it is.
 ########
 
 # Define the input file path containing application names (one per line)
@@ -125,7 +125,8 @@ foreach ($App in $AppList) {
             Remove-CMContentDistribution -ApplicationName $App -DistributionPointGroupName $DPG -Force -ErrorAction Stop
             Write-Host "Removed content for application '$App' from distribution point group '$DPG'."
         } catch {
-            Write-Host "Failed to remove content for application '$App' from distribution point group '$DPG': $_" -ForegroundColor Yellow
+            Write-Host "Failed to remove content for application '$App' from distribution point group '$DPG' $_" -ForegroundColor Yellow
         }
     }
-}
+}}
+
